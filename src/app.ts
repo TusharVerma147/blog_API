@@ -1,6 +1,7 @@
 import express from "express";
 import cookieParser from "cookie-parser";
-import healthRoutes from "./routes/health.routes";
+import apiRoutes from "./routes";
+import { setupSwagger } from "./docs/swaggerSetup";
 import { notFound } from "./middlewares/notFound";
 import { errorHandler } from "./middlewares/errorHandler";
 
@@ -9,7 +10,9 @@ const app = express();
 app.use(express.json());
 app.use(cookieParser());
 
-app.use("/api", healthRoutes);
+setupSwagger(app);
+
+app.use("/api", apiRoutes);
 
 app.use(notFound);
 app.use(errorHandler);
