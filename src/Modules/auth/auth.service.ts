@@ -6,6 +6,13 @@ import { sanitizeUser } from "../../utils/sanitizeUser";
 import { AppError } from "../../utils/AppError";
 import { HTTP_STATUS } from "../../constants/httpStatus";
 import { AUTH } from "../../constants/auth";
+import { remainingTtlSeconds } from "../../utils/authToken";
+import { cacheSession, removeCachedSession } from "../../utils/sessionCache";
+import {
+  assertLoginAllowed,
+  clearFailedLogins,
+  recordFailedLogin,
+} from "../../utils/loginRateLimit";
 import { SignupInput, LoginInput } from "./auth.validation";
 
 function isDuplicateKeyError(error: unknown): boolean {
@@ -41,9 +48,14 @@ export class AuthService {
   }
 
   async login(input: LoginInput, userAgent: string) {
-    const user = await userRepository.findByEmail(input.email);
+    const email = input.email.toLowerCase();
+
+    await assertLoginAllowed(email);
+
+    const user = await userRepository.findByEmail(email);
 
     if (!user || !user.password) {
+      await recordFailedLogin(email);
       throw new AppError(
         "Invalid email or password",
         HTTP_STATUS.UNAUTHORIZED
@@ -53,11 +65,14 @@ export class AuthService {
     const isMatch = await comparePassword(input.password, user.password);
 
     if (!isMatch) {
+      await recordFailedLogin(email);
       throw new AppError(
         "Invalid email or password",
         HTTP_STATUS.UNAUTHORIZED
       );
     }
+
+    await clearFailedLogins(email);
 
     const token = crypto.randomBytes(32).toString("hex");
     const expiresAt = new Date();
@@ -70,6 +85,12 @@ export class AuthService {
       userAgent,
     });
 
+    await cacheSession(
+      token,
+      user._id.toString(),
+      remainingTtlSeconds(expiresAt)
+    );
+
     return {
       token,
       expiresAt,
@@ -78,9 +99,13 @@ export class AuthService {
   }
 
   async logout(token: string | undefined) {
-    if (token) {
-      await sessionRepository.deleteByToken(token);
+    if (!token) {
+      return;
     }
+
+    const session = await sessionRepository.deleteByToken(token);
+    const userId = session?.userId?.toString();
+    await removeCachedSession(token, userId);
   }
 }
 

@@ -1,10 +1,12 @@
 import app from "./app";
 import { config } from "./constants/config";
 import { connectDatabase } from "./providers/database/connection";
+import { connectRedis } from "./providers/redis/connection";
 
 async function startServer(): Promise<void> {
   try {
     await connectDatabase();
+    await connectRedis();
 
     app.listen(config.port, () => {
       console.log(`Server running on http://localhost:${config.port}`);

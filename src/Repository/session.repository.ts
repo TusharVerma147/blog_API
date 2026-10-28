@@ -16,7 +16,7 @@ export const sessionRepository = {
     return Session.findOne({ token });
   },
 
-  async deleteByToken(token: string): Promise<void> {
-    await Session.deleteOne({ token });
+  async deleteByToken(token: string): Promise<ISession | null> {
+    return Session.findOneAndDelete({ token });
   },
 };

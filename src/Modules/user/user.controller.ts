@@ -10,11 +10,12 @@ export class UserController {
       throw new AppError("Unauthorized", HTTP_STATUS.UNAUTHORIZED);
     }
 
-    const user = userService.getMe(req.user);
+    const { profile, cacheStatus } = await userService.getMe(req.user);
 
+    res.setHeader("X-Cache", cacheStatus);
     res.status(HTTP_STATUS.OK).json({
       success: true,
-      data: user,
+      data: profile,
     });
   };
 

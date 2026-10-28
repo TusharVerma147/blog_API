@@ -27,11 +27,12 @@ export const postRepository = {
   },
 
   async findPublishedById(id: string | Types.ObjectId): Promise<IPost | null> {
-    return Post.findOne({ _id: id, status: "published" });
+    // lean() so Redis HIT and Mongo MISS return the same plain JSON shape
+    return Post.findOne({ _id: id, status: "published" }).lean();
   },
 
   async findByAuthor(authorId: Types.ObjectId): Promise<IPost[]> {
-    return Post.find({ author: authorId }).sort({ createdAt: -1 });
+    return Post.find({ author: authorId }).sort({ createdAt: -1 }).lean();
   },
 
   async updateById(
@@ -41,8 +42,10 @@ export const postRepository = {
     return Post.findByIdAndUpdate(id, update, {
       returnDocument: "after",
       runValidators: true,
+      lean: true,
     });
   },
+
 
   async deleteById(id: string | Types.ObjectId): Promise<IPost | null> {
     return Post.findByIdAndDelete(id);

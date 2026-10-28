@@ -6,6 +6,16 @@ import { HTTP_STATUS } from "../../constants/httpStatus";
 import { assertObjectId } from "../../utils/objectId";
 import { AuthUser } from "../../types/express";
 import {
+  bumpPostsListVersion,
+  getCachedPost,
+  getCachedPostList,
+  invalidatePostCache,
+  setCachedPost,
+  setCachedPostList,
+  CacheStatus,
+  PostListResponse,
+} from "../../utils/postCache";
+import {
   CreatePostInput,
   UpdatePostInput,
   ListPostsQuery,
@@ -17,7 +27,7 @@ export class PostService {
   }
 
   async create(user: AuthUser, input: CreatePostInput) {
-    return postRepository.create({
+    const post = await postRepository.create({
       title: input.title,
       body: input.body,
       tags: this.normalizeTags(input.tags),
@@ -25,20 +35,44 @@ export class PostService {
       authorName: user.name,
       status: input.status,
     });
+
+    // Write Mongo first, then invalidate list cache via version bump
+    await bumpPostsListVersion();
+
+    return post;
   }
 
-  async getPublishedById(id: string) {
+  async getPublishedById(
+    id: string
+  ): Promise<{ post: unknown; cacheStatus: CacheStatus }> {
     const objectId = assertObjectId(id, "post ID");
+    const postId = objectId.toString();
+
+    const cached = await getCachedPost(postId);
+    if (cached) {
+      return cached;
+    }
+
     const post = await postRepository.findPublishedById(objectId);
 
     if (!post) {
       throw new AppError("Post not found", HTTP_STATUS.NOT_FOUND);
     }
 
-    return post;
+    // Only cache published posts (never drafts / 404s)
+    await setCachedPost(postId, post);
+
+    return { post, cacheStatus: "MISS" };
   }
 
-  async listPublished(query: ListPostsQuery) {
+  async listPublished(
+    query: ListPostsQuery
+  ): Promise<{ body: PostListResponse; cacheStatus: CacheStatus }> {
+    const cached = await getCachedPostList(query);
+    if (cached) {
+      return cached;
+    }
+
     const { data, total } = await postRepository.listPublished({
       page: query.page,
       limit: query.limit,
@@ -47,7 +81,7 @@ export class PostService {
       sort: query.sort,
     });
 
-    return {
+    const body: PostListResponse = {
       data,
       pagination: {
         page: query.page,
@@ -56,9 +90,14 @@ export class PostService {
         totalPages: Math.ceil(total / query.limit) || 0,
       },
     };
+
+    await setCachedPostList(query, body);
+
+    return { body, cacheStatus: "MISS" };
   }
 
   async listMine(userId: Types.ObjectId) {
+    // Intentionally not cached (private, changes often)
     return postRepository.findByAuthor(userId);
   }
 
@@ -88,6 +127,8 @@ export class PostService {
       throw new AppError("Post not found", HTTP_STATUS.NOT_FOUND);
     }
 
+    await invalidatePostCache(objectId.toString());
+
     return updated;
   }
 
@@ -108,6 +149,7 @@ export class PostService {
 
     await commentRepository.deleteByPostId(objectId);
     await postRepository.deleteById(objectId);
+    await invalidatePostCache(objectId.toString());
   }
 }
 

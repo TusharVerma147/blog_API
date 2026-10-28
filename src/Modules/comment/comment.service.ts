@@ -3,6 +3,7 @@ import { postRepository } from "../../Repository/post.repository";
 import { AppError } from "../../utils/AppError";
 import { HTTP_STATUS } from "../../constants/httpStatus";
 import { assertObjectId } from "../../utils/objectId";
+import { invalidatePostCache } from "../../utils/postCache";
 import { AuthUser } from "../../types/express";
 import { CreateCommentInput, ListCommentsQuery } from "./comment.validation";
 
@@ -23,6 +24,8 @@ export class CommentService {
     });
 
     await postRepository.incrementCommentCount(objectId, 1);
+    // commentCount changed → drop single-post cache + bump list version
+    await invalidatePostCache(objectId.toString());
 
     return comment;
   }
@@ -78,6 +81,7 @@ export class CommentService {
 
     await commentRepository.deleteById(objectId);
     await postRepository.incrementCommentCount(comment.postId, -1);
+    await invalidatePostCache(comment.postId.toString());
   }
 }
 

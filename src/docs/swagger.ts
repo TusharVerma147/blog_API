@@ -4,7 +4,7 @@ export const swaggerSpec = {
     title: "Blog API",
     version: "1.0.0",
     description:
-      "REST API for a blog with Express, TypeScript and Mongoose. Auth uses an httpOnly cookie named `token` (set on login).",
+      "REST API for a blog with Express, TypeScript, Mongoose and Redis. Auth: send `Authorization: Bearer <token>` (token is returned on login).",
   },
   servers: [
     {
@@ -22,12 +22,13 @@ export const swaggerSpec = {
   ],
   components: {
     securitySchemes: {
-      cookieAuth: {
-        type: "apiKey",
-        in: "cookie",
-        name: "token",
+      bearerAuth: {
+        type: "http",
+        scheme: "bearer",
+        bearerFormat: "SessionToken",
       },
     },
+
     schemas: {
       ErrorResponse: {
         type: "object",
@@ -202,7 +203,7 @@ export const swaggerSpec = {
       get: {
         tags: ["Users"],
         summary: "Get logged-in user profile",
-        security: [{ cookieAuth: [] }],
+        security: [{ bearerAuth: [] }],
         responses: {
           "200": { description: "Current user (no password)" },
           "401": {
@@ -219,7 +220,7 @@ export const swaggerSpec = {
       patch: {
         tags: ["Users"],
         summary: "Update logged-in user's name",
-        security: [{ cookieAuth: [] }],
+        security: [{ bearerAuth: [] }],
         requestBody: {
           required: true,
           content: {
@@ -244,7 +245,7 @@ export const swaggerSpec = {
       get: {
         tags: ["Users", "Posts"],
         summary: "List my posts (including drafts)",
-        security: [{ cookieAuth: [] }],
+        security: [{ bearerAuth: [] }],
         responses: {
           "200": { description: "User posts" },
           "401": { description: "Unauthorized" },
@@ -296,7 +297,7 @@ export const swaggerSpec = {
       post: {
         tags: ["Posts"],
         summary: "Create a post",
-        security: [{ cookieAuth: [] }],
+        security: [{ bearerAuth: [] }],
         requestBody: {
           required: true,
           content: {
@@ -365,7 +366,7 @@ export const swaggerSpec = {
       patch: {
         tags: ["Posts"],
         summary: "Update a post (author only)",
-        security: [{ cookieAuth: [] }],
+        security: [{ bearerAuth: [] }],
         parameters: [
           {
             name: "id",
@@ -410,7 +411,7 @@ export const swaggerSpec = {
       delete: {
         tags: ["Posts"],
         summary: "Delete a post (author only)",
-        security: [{ cookieAuth: [] }],
+        security: [{ bearerAuth: [] }],
         parameters: [
           {
             name: "id",
@@ -456,7 +457,7 @@ export const swaggerSpec = {
       post: {
         tags: ["Comments"],
         summary: "Add a comment to a published post",
-        security: [{ cookieAuth: [] }],
+        security: [{ bearerAuth: [] }],
         parameters: [
           {
             name: "id",
@@ -490,7 +491,7 @@ export const swaggerSpec = {
       delete: {
         tags: ["Comments"],
         summary: "Delete a comment (comment author or post author)",
-        security: [{ cookieAuth: [] }],
+        security: [{ bearerAuth: [] }],
         parameters: [
           {
             name: "id",

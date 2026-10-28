@@ -26,20 +26,24 @@ export class PostController {
   };
 
   list = async (req: Request, res: Response): Promise<void> => {
-    const result = await postService.listPublished(
+    const { body, cacheStatus } = await postService.listPublished(
       req.validatedQuery as ListPostsQuery
     );
 
+    res.setHeader("X-Cache", cacheStatus);
     res.status(HTTP_STATUS.OK).json({
       success: true,
-      data: result.data,
-      pagination: result.pagination,
+      data: body.data,
+      pagination: body.pagination,
     });
   };
 
   getById = async (req: Request, res: Response): Promise<void> => {
-    const post = await postService.getPublishedById(req.params.id as string);
+    const { post, cacheStatus } = await postService.getPublishedById(
+      req.params.id as string
+    );
 
+    res.setHeader("X-Cache", cacheStatus);
     res.status(HTTP_STATUS.OK).json({
       success: true,
       data: post,

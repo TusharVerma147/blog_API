@@ -1,8 +1,8 @@
 import { Request, Response } from "express";
 import { authService } from "./auth.service";
 import { SignupInput, LoginInput } from "./auth.validation";
-import { AUTH } from "../../constants/auth";
 import { HTTP_STATUS } from "../../constants/httpStatus";
+import { getTokenFromRequest } from "../../utils/authToken";
 
 export class AuthController {
   signup = async (req: Request, res: Response): Promise<void> => {
@@ -18,22 +18,19 @@ export class AuthController {
     const userAgent = req.get("user-agent") || "";
     const result = await authService.login(req.body as LoginInput, userAgent);
 
-    res.cookie(AUTH.COOKIE_NAME, result.token, {
-      httpOnly: true,
-      sameSite: "lax",
-      expires: result.expiresAt,
-    });
-
+    // Token is sent to the front-end in the body (auth uses Headers, not cookies)
     res.status(HTTP_STATUS.OK).json({
       success: true,
-      data: result.user,
+      data: {
+        ...result.user,
+        token: result.token,
+      },
     });
   };
 
   logout = async (req: Request, res: Response): Promise<void> => {
-    const token = req.cookies?.[AUTH.COOKIE_NAME] as string | undefined;
+    const token = getTokenFromRequest(req);
     await authService.logout(token);
-    res.clearCookie(AUTH.COOKIE_NAME);
 
     res.status(HTTP_STATUS.OK).json({
       success: true,
